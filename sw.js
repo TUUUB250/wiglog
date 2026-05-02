@@ -3,8 +3,7 @@ const ASSETS = [
   './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png',
-  'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Serif+Display:ital@0;1&display=swap'
+  './icon-512.png'
 ];
 
 self.addEventListener('install', e => {
