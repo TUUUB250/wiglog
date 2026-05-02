@@ -1,39 +1,990 @@
-const CACHE = 'wiglog-v1';
-const ASSETS = [
-  './index.html',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
-  'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Serif+Display:ital@0;1&display=swap'
-];
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WigLog — ウィッグ管理</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#E8658A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="WigLog">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --pink:     #E8658A;
+    --pink-lt:  #F9E4EC;
+    --pink-md:  #F2B8CE;
+    --lavender: #C9A8E0;
+    --lav-lt:   #F0E8F8;
+    --sage:     #8EB89A;
+    --sage-lt:  #E4F1E8;
+    --amber:    #D4914A;
+    --amber-lt: #FBF0E4;
+    --red:      #C95959;
+    --red-lt:   #FAEAEA;
+    --bg:       #FBF7F9;
+    --surface:  #FFFFFF;
+    --border:   rgba(200,150,180,0.2);
+    --border-md:rgba(200,150,180,0.4);
+    --text:     #2A1A22;
+    --text-2:   #7A5569;
+    --text-3:   #B08095;
+    --shadow:   0 2px 16px rgba(180,100,140,0.08);
+    --radius:   14px;
+    --radius-sm:8px;
+  }
 
-// インストール時にキャッシュへ保存
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(ASSETS))
-  );
-  self.skipWaiting();
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 1px 12px rgba(180,100,140,0.06);
+  }
+  .logo {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .logo-text {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--pink);
+    letter-spacing: -0.5px;
+  }
+  .logo-sub {
+    font-size: 11px;
+    color: var(--text-3);
+    font-weight: 300;
+    letter-spacing: 0.05em;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .stat-pill {
+    font-size: 12px;
+    color: var(--text-2);
+    background: var(--pink-lt);
+    padding: 4px 12px;
+    border-radius: 99px;
+  }
+  .stat-pill span { font-weight: 700; color: var(--pink); }
+
+  /* ── Layout ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+
+  /* ── Stats Bar ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .stat-card .num {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    line-height: 1;
+    margin-bottom: 4px;
+    color: var(--pink);
+  }
+  .stat-card .lbl { font-size: 12px; color: var(--text-3); font-weight: 300; }
+  .stat-card.warn .num { color: var(--red); }
+  .stat-card.good .num { color: var(--sage); }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .search-wrap {
+    flex: 1;
+    min-width: 200px;
+    position: relative;
+  }
+  .search-wrap svg {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.35;
+  }
+  .search-wrap input {
+    width: 100%;
+    padding: 8px 12px 8px 34px;
+    border: 1px solid var(--border-md);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-wrap input:focus { border-color: var(--pink-md); }
+
+  select.filter {
+    padding: 8px 12px;
+    border: 1px solid var(--border-md);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    cursor: pointer;
+  }
+  select.filter:focus { border-color: var(--pink-md); }
+
+  .btn {
+    padding: 8px 18px;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--pink);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(232,101,138,0.3);
+  }
+  .btn-primary:hover { background: #d05580; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(232,101,138,0.35); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-2);
+    border: 1px solid var(--border-md);
+  }
+  .btn-ghost:hover { background: var(--pink-lt); color: var(--pink); border-color: var(--pink-md); }
+
+  /* ── Grid ── */
+  .wig-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+  }
+
+  .wig-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: all 0.18s;
+    position: relative;
+    overflow: hidden;
+  }
+  .wig-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--card-accent, var(--pink));
+  }
+  .wig-card:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(180,100,140,0.13); border-color: var(--pink-md); }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .color-swatch {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.8);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  .card-title { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.3; }
+  .card-work { font-size: 12px; color: var(--pink); font-weight: 500; margin-top: 2px; }
+
+  .card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+  .tag {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 99px;
+    font-weight: 500;
+  }
+  .tag-cond-new       { background: var(--sage-lt);   color: var(--sage);   }
+  .tag-cond-good      { background: var(--lav-lt);    color: var(--lavender); }
+  .tag-cond-used      { background: var(--amber-lt);  color: var(--amber);  }
+  .tag-cond-repair    { background: var(--red-lt);    color: var(--red);    }
+  .tag-default        { background: var(--pink-lt);   color: var(--pink);   }
+
+  .card-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  .card-shop { font-weight: 500; color: var(--text-2); }
+  .card-price { font-family: 'DM Serif Display', serif; font-size: 16px; color: var(--text); }
+
+  .card-actions {
+    position: absolute;
+    top: 10px; right: 10px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .wig-card:hover .card-actions { opacity: 1; }
+  .btn-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border-md);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-2);
+    transition: all 0.12s;
+  }
+  .btn-icon:hover { background: var(--pink-lt); color: var(--pink); border-color: var(--pink-md); }
+  .btn-icon.del:hover { background: var(--red-lt); color: var(--red); border-color: #f0aaaa; }
+
+  /* ── Empty ── */
+  .empty {
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-3);
+  }
+  .empty-icon {
+    font-size: 56px;
+    margin-bottom: 16px;
+    opacity: 0.4;
+  }
+  .empty-title { font-size: 17px; font-weight: 500; color: var(--text-2); margin-bottom: 6px; }
+  .empty-desc { font-size: 13px; }
+
+  /* ── Modal Overlay ── */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(30,10,20,0.45);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(2px);
+  }
+  .overlay.show { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 18px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 92vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 60px rgba(150,50,90,0.2);
+    animation: slideUp 0.22s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .modal-head {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 1;
+  }
+  .modal-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    color: var(--text);
+  }
+  .modal-close {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border-md);
+    background: none;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-2);
+    transition: all 0.12s;
+  }
+  .modal-close:hover { background: var(--pink-lt); color: var(--pink); }
+
+  .modal-body { padding: 20px 24px; }
+  .modal-foot {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  /* ── Form ── */
+  .form-section {
+    margin-bottom: 18px;
+  }
+  .form-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1/-1; }
+  .form-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-2);
+  }
+  .form-input {
+    padding: 9px 12px;
+    border: 1px solid var(--border-md);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    width: 100%;
+  }
+  .form-input:focus {
+    border-color: var(--pink);
+    box-shadow: 0 0 0 3px rgba(232,101,138,0.1);
+  }
+  textarea.form-input { min-height: 90px; resize: vertical; line-height: 1.6; }
+
+  .color-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .color-picker-wrap {
+    position: relative;
+    width: 40px;
+    height: 38px;
+    flex-shrink: 0;
+  }
+  .color-picker-wrap input[type="color"] {
+    opacity: 0;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+  }
+  .color-swatch-btn {
+    width: 40px;
+    height: 38px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-md);
+    pointer-events: none;
+  }
+
+  /* ── Detail Modal ── */
+  .detail-hero {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-swatch {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 3px solid rgba(255,255,255,0.8);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  }
+  .detail-name { font-family: 'DM Serif Display', serif; font-size: 22px; }
+  .detail-work { font-size: 13px; color: var(--pink); font-weight: 500; margin-top: 2px; }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-item label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    font-weight: 700;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .detail-item .val {
+    font-size: 14px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .detail-memo {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-memo label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    font-weight: 700;
+    display: block;
+    margin-bottom: 8px;
+  }
+  .detail-memo .memo-body {
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-2);
+    background: var(--bg);
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    white-space: pre-wrap;
+  }
+
+  /* ── Confirm Dialog ── */
+  .confirm-modal {
+    max-width: 380px;
+    text-align: center;
+    padding: 32px 28px;
+  }
+  .confirm-icon { font-size: 40px; margin-bottom: 12px; }
+  .confirm-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .confirm-desc { font-size: 13px; color: var(--text-2); margin-bottom: 24px; }
+  .confirm-btns { display: flex; justify-content: center; gap: 10px; }
+  .btn-danger { background: var(--red); color: #fff; border: none; padding: 10px 22px; border-radius: var(--radius-sm); font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .btn-danger:hover { background: #b84444; }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .form-grid { grid-template-columns: 1fr; }
+    .detail-grid { grid-template-columns: 1fr; }
+    .toolbar { gap: 8px; }
+    .search-wrap { min-width: 100%; }
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--pink-md); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="logo">
+    <span class="logo-text">WigLog</span>
+    <span class="logo-sub">コスプレウィッグ管理</span>
+  </div>
+  <div class="header-right">
+    <div class="stat-pill" id="headerCount">0 件</div>
+    <button class="btn btn-primary" onclick="openAdd()">＋ 追加</button>
+  </div>
+</header>
+
+<!-- Main -->
+<main class="container">
+
+  <!-- Stats -->
+  <div class="stats-row" id="statsRow">
+    <div class="stat-card"><div class="num" id="sTot">0</div><div class="lbl">総ウィッグ数</div></div>
+    <div class="stat-card"><div class="num" id="sChara">0</div><div class="lbl">キャラ数</div></div>
+    <div class="stat-card"><div class="num" id="sSpend">¥0</div><div class="lbl">総額</div></div>
+    <div class="stat-card warn"><div class="num" id="sRepair">0</div><div class="lbl">要メンテ</div></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="searchQ" placeholder="キャラ・作品・ショップ名で検索..." oninput="render()">
+    </div>
+    <select class="filter" id="fCond" onchange="render()">
+      <option value="">すべての状態</option>
+      <option>新品</option>
+      <option>良好</option>
+      <option>使用感あり</option>
+      <option>要メンテ</option>
+    </select>
+    <select class="filter" id="fLen" onchange="render()">
+      <option value="">すべての長さ</option>
+      <option>ショート</option>
+      <option>ミディアム</option>
+      <option>ロング</option>
+      <option>その他</option>
+    </select>
+    <select class="filter" id="fSort" onchange="render()">
+      <option value="new">新しい順</option>
+      <option value="old">古い順</option>
+      <option value="price-h">金額（高）</option>
+      <option value="price-l">金額（低）</option>
+      <option value="chara">キャラ名順</option>
+    </select>
+  </div>
+
+  <!-- Grid -->
+  <div class="wig-grid" id="wigGrid"></div>
+
+</main>
+
+
+<!-- ─── Add/Edit Modal ─── -->
+<div class="overlay" id="formOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="formTitle">ウィッグを追加</div>
+      <button class="modal-close" onclick="closeForm()">×</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="form-section">
+        <div class="form-section-label">キャラクター情報</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">キャラクター名 <span style="color:var(--pink)">*</span></label>
+            <input type="text" class="form-input" id="fChara" placeholder="例：レム">
+          </div>
+          <div class="form-group">
+            <label class="form-label">作品名</label>
+            <input type="text" class="form-input" id="fWork" placeholder="例：Re:ゼロ">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-label">ウィッグ詳細</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">色</label>
+            <div class="color-row">
+              <div class="color-picker-wrap">
+                <div class="color-swatch-btn" id="fColorSwatch" style="background:#5B9BD5"></div>
+                <input type="color" id="fColorPicker" value="#5B9BD5" oninput="document.getElementById('fColorSwatch').style.background=this.value">
+              </div>
+              <input type="text" class="form-input" id="fColorName" placeholder="例：ライトブルー" style="flex:1">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">長さ</label>
+            <select class="form-input" id="fLength">
+              <option value="">未選択</option>
+              <option>ショート</option>
+              <option>ミディアム</option>
+              <option>ロング</option>
+              <option>その他</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">状態</label>
+            <select class="form-input" id="fCond">
+              <option>新品</option>
+              <option>良好</option>
+              <option>使用感あり</option>
+              <option>要メンテ</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">購入金額（円）</label>
+            <input type="number" class="form-input" id="fPrice" placeholder="3800">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-label">購入情報</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">購入日</label>
+            <input type="date" class="form-input" id="fDate">
+          </div>
+          <div class="form-group">
+            <label class="form-label">ショップ名</label>
+            <input type="text" class="form-input" id="fShop" placeholder="例：コスパティオ">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-label">メモ</div>
+        <div class="form-group">
+          <textarea class="form-input" id="fNote" placeholder="整髪方法・保管場所・手入れのコツなど…"></textarea>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeForm()">キャンセル</button>
+      <button class="btn btn-primary" onclick="save()">保存する</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ─── Detail Modal ─── -->
+<div class="overlay" id="detailOverlay">
+  <div class="modal" id="detailModal">
+    <div class="modal-head">
+      <div class="modal-title">詳細</div>
+      <button class="modal-close" onclick="closeDetail()">×</button>
+    </div>
+    <div id="detailInner"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red-lt)" onclick="askDelete()">削除</button>
+      <button class="btn btn-ghost" onclick="closeDetail()">閉じる</button>
+      <button class="btn btn-primary" onclick="editFromDetail()">編集</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ─── Confirm Modal ─── -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal">
+    <div class="confirm-modal">
+      <div class="confirm-icon">🗑️</div>
+      <div class="confirm-title">削除しますか？</div>
+      <div class="confirm-desc" id="confirmDesc"></div>
+      <div class="confirm-btns">
+        <button class="btn btn-ghost" onclick="closeConfirm()">キャンセル</button>
+        <button class="btn-danger" onclick="doDelete()">削除する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+const KEY = 'wiglog_v2';
+let wigs = [];
+let editId = null;
+let detailId = null;
+
+// ── Persist ──────────────────────────
+function load() {
+  try { wigs = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { wigs = []; }
+}
+function persist() {
+  localStorage.setItem(KEY, JSON.stringify(wigs));
+}
+
+// ── Condition helpers ─────────────────
+const condClass = { '新品':'tag-cond-new','良好':'tag-cond-good','使用感あり':'tag-cond-used','要メンテ':'tag-cond-repair' };
+const condAccent = { '新品':'#8EB89A','良好':'#C9A8E0','使用感あり':'#D4914A','要メンテ':'#C95959' };
+
+// ── Stats ──────────────────────────────
+function updateStats(list) {
+  const total = list.length;
+  const chars  = new Set(list.map(w => w.chara)).size;
+  const spend  = list.reduce((s,w) => s + (parseFloat(w.price)||0), 0);
+  const repair = list.filter(w => w.condition === '要メンテ').length;
+  document.getElementById('sTot').textContent    = total;
+  document.getElementById('sChara').textContent  = chars;
+  document.getElementById('sSpend').textContent  = '¥' + Math.round(spend).toLocaleString();
+  document.getElementById('sRepair').textContent = repair;
+  document.getElementById('headerCount').innerHTML = `<span>${wigs.length}</span> 件`;
+}
+
+// ── Render ─────────────────────────────
+function render() {
+  const q    = document.getElementById('searchQ').value.toLowerCase();
+  const cond = document.getElementById('fCond').value;
+  const len  = document.getElementById('fLen').value;
+  const sort = document.getElementById('fSort').value;
+
+  let list = wigs.filter(w => {
+    const hit = !q ||
+      (w.chara||'').toLowerCase().includes(q) ||
+      (w.work||'').toLowerCase().includes(q)  ||
+      (w.shop||'').toLowerCase().includes(q)  ||
+      (w.colorName||'').toLowerCase().includes(q);
+    return hit &&
+      (!cond || w.condition === cond) &&
+      (!len  || w.length    === len);
+  });
+
+  if (sort==='new')     list.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  else if (sort==='old')     list.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+  else if (sort==='price-h') list.sort((a,b) => (parseFloat(b.price)||0) - (parseFloat(a.price)||0));
+  else if (sort==='price-l') list.sort((a,b) => (parseFloat(a.price)||0) - (parseFloat(b.price)||0));
+  else if (sort==='chara')   list.sort((a,b) => (a.chara||'').localeCompare(b.chara||'', 'ja'));
+
+  updateStats(list);
+
+  const grid = document.getElementById('wigGrid');
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty">
+      <div class="empty-icon">💁‍♀️</div>
+      <div class="empty-title">${wigs.length===0 ? 'ウィッグを追加しましょう' : '該当なし'}</div>
+      <div class="empty-desc">${wigs.length===0 ? '右上の「＋ 追加」から登録できます' : '検索条件を変えてみてください'}</div>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(w => {
+    const accent = condAccent[w.condition] || '#E8658A';
+    const cc = condClass[w.condition] || 'tag-default';
+    return `
+    <div class="wig-card" style="--card-accent:${accent}" onclick="openDetail('${w.id}')">
+      <div class="card-actions" onclick="event.stopPropagation()">
+        <button class="btn-icon" title="編集" onclick="openEdit('${w.id}')">✎</button>
+        <button class="btn-icon del" title="削除" onclick="openConfirm('${w.id}')">✕</button>
+      </div>
+      <div class="card-top">
+        <div class="color-swatch" style="background:${w.color||'#ddd'}"></div>
+        <div>
+          <div class="card-title">${esc(w.chara||'名称未設定')}</div>
+          <div class="card-work">${esc(w.work||'　')}</div>
+        </div>
+      </div>
+      <div class="card-tags">
+        ${w.condition ? `<span class="tag ${cc}">${w.condition}</span>` : ''}
+        ${w.length    ? `<span class="tag tag-default">${w.length}</span>` : ''}
+        ${w.colorName ? `<span class="tag tag-default">${esc(w.colorName)}</span>` : ''}
+      </div>
+      <div class="card-info">
+        <div>
+          <div class="card-shop">${w.shop ? '🏪 '+esc(w.shop) : ''}</div>
+          <div>${w.date ? '📅 '+w.date : ''}</div>
+        </div>
+        <div class="card-price">${w.price ? '¥'+Math.round(w.price).toLocaleString() : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Form ───────────────────────────────
+function openAdd() {
+  editId = null;
+  document.getElementById('formTitle').textContent = 'ウィッグを追加';
+  clearForm();
+  document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('formOverlay').classList.add('show');
+}
+
+function openEdit(id) {
+  editId = id;
+  const w = wigs.find(x => x.id===id);
+  if (!w) return;
+  document.getElementById('formTitle').textContent = 'ウィッグを編集';
+  document.getElementById('fChara').value     = w.chara     || '';
+  document.getElementById('fWork').value      = w.work      || '';
+  document.getElementById('fColorPicker').value = w.color   || '#5B9BD5';
+  document.getElementById('fColorSwatch').style.background = w.color || '#5B9BD5';
+  document.getElementById('fColorName').value = w.colorName || '';
+  document.getElementById('fLength').value    = w.length    || '';
+  document.getElementById('fCond').value      = w.condition || '新品';
+  document.getElementById('fPrice').value     = w.price     || '';
+  document.getElementById('fDate').value      = w.date      || '';
+  document.getElementById('fShop').value      = w.shop      || '';
+  document.getElementById('fNote').value      = w.note      || '';
+  document.getElementById('formOverlay').classList.add('show');
+}
+
+function clearForm() {
+  ['fChara','fWork','fColorName','fPrice','fShop','fNote'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('fColorPicker').value = '#5B9BD5';
+  document.getElementById('fColorSwatch').style.background = '#5B9BD5';
+  document.getElementById('fLength').value = '';
+  document.getElementById('fCond').value = '新品';
+  document.getElementById('fDate').value = '';
+}
+
+function closeForm() {
+  document.getElementById('formOverlay').classList.remove('show');
+}
+
+function save() {
+  const chara = document.getElementById('fChara').value.trim();
+  if (!chara) { document.getElementById('fChara').focus(); document.getElementById('fChara').style.borderColor='var(--red)'; return; }
+  document.getElementById('fChara').style.borderColor='';
+
+  const data = {
+    chara,
+    work:      document.getElementById('fWork').value.trim(),
+    color:     document.getElementById('fColorPicker').value,
+    colorName: document.getElementById('fColorName').value.trim(),
+    length:    document.getElementById('fLength').value,
+    condition: document.getElementById('fCond').value,
+    price:     document.getElementById('fPrice').value,
+    date:      document.getElementById('fDate').value,
+    shop:      document.getElementById('fShop').value.trim(),
+    note:      document.getElementById('fNote').value.trim(),
+  };
+
+  if (editId) {
+    const i = wigs.findIndex(x => x.id===editId);
+    wigs[i] = { ...wigs[i], ...data };
+  } else {
+    data.id = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+    data.createdAt = new Date().toISOString();
+    wigs.unshift(data);
+  }
+
+  persist();
+  closeForm();
+  render();
+}
+
+// ── Detail ──────────────────────────────
+function openDetail(id) {
+  detailId = id;
+  const w = wigs.find(x => x.id===id);
+  if (!w) return;
+
+  const cc = condClass[w.condition]||'tag-default';
+  const row = (label, val) => val ? `<div class="detail-item"><label>${label}</label><div class="val">${esc(val)}</div></div>` : '';
+
+  document.getElementById('detailInner').innerHTML = `
+    <div class="detail-hero">
+      <div class="detail-swatch" style="background:${w.color||'#ddd'}"></div>
+      <div>
+        <div class="detail-name">${esc(w.chara||'名称未設定')}</div>
+        <div class="detail-work">${esc(w.work||'')}</div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          ${w.condition ? `<span class="tag ${cc}">${w.condition}</span>` : ''}
+          ${w.length    ? `<span class="tag tag-default">${w.length}</span>` : ''}
+          ${w.colorName ? `<span class="tag tag-default">${esc(w.colorName)}</span>` : ''}
+        </div>
+      </div>
+    </div>
+    <div class="detail-grid">
+      ${row('購入日',   w.date)}
+      ${row('ショップ', w.shop)}
+      ${row('購入金額', w.price ? '¥'+Math.round(w.price).toLocaleString() : '')}
+      ${row('色',       w.colorName || (w.color ? w.color : ''))}
+      ${row('長さ',     w.length)}
+      ${row('状態',     w.condition)}
+    </div>
+    ${w.note ? `<div class="detail-memo"><label>メモ</label><div class="memo-body">${esc(w.note)}</div></div>` : ''}
+  `;
+
+  document.getElementById('detailOverlay').classList.add('show');
+}
+
+function closeDetail() {
+  document.getElementById('detailOverlay').classList.remove('show');
+}
+
+function editFromDetail() {
+  closeDetail();
+  openEdit(detailId);
+}
+
+// ── Delete ──────────────────────────────
+function openConfirm(id) {
+  detailId = id;
+  const w = wigs.find(x => x.id===id);
+  document.getElementById('confirmDesc').textContent = `「${w?.chara||'このウィッグ'}」を削除します。この操作は取り消せません。`;
+  document.getElementById('confirmOverlay').classList.add('show');
+}
+
+function askDelete() {
+  openConfirm(detailId);
+}
+
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('show');
+}
+
+function doDelete() {
+  wigs = wigs.filter(x => x.id!==detailId);
+  persist();
+  closeConfirm();
+  closeDetail();
+  render();
+}
+
+// ── Close on backdrop click ──────────────
+['formOverlay','detailOverlay','confirmOverlay'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => {
+    if (e.target.id===id) document.getElementById(id).classList.remove('show');
+  });
 });
 
-// 古いキャッシュを削除
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
-});
-
-// ネットワーク優先 → 失敗したらキャッシュから返す
-self.addEventListener('fetch', e => {
-  e.respondWith(
-    fetch(e.request)
-      .then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(cache => cache.put(e.request, copy));
-        return res;
-      })
-      .catch(() => caches.match(e.request))
-  );
-});
+// ── Init ────────────────────────────────
+load();
+render();
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(() => console.log('WigLog: Service Worker 登録済み'))
+        .catch(e => console.warn('SW登録失敗:', e));
+    });
+  }
+</script>
+</body>
+</html>
